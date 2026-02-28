@@ -51,14 +51,14 @@
 					try {
 						await qrScanner.stop();
 
-						const res = await fetch(
-							'https://script.google.com/macros/s/AKfycbx1x_-_gYFutasVZW_9DKQSMvdQVx3nYOwLSd1lmWr0RNaVzvl9K5tEoA07xA_nTESc7w/exec',
-							{
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ qr: decodedText, origen: who }),
-							},
-						);
+						const res = async (decodedText) => {
+							await qrScanner.stop();
+
+							const url = new URL(returnUrl);
+							url.searchParams.set('sid', sid || '');
+							url.searchParams.set('qr', decodedText); // 👈 mandás el token
+							location.href = url.toString();
+						};
 
 						const reg = await res.json();
 
