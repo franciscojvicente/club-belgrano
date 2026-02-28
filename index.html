@@ -1,32 +1,72 @@
 <!doctype html>
 <html>
 	<head>
-		<title>Puerta Club Belgrano</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Escanear QR</title>
 		<script src="https://unpkg.com/html5-qrcode"></script>
+		<style>
+			body {
+				font-family: system-ui, Arial;
+				padding: 16px;
+			}
+			#reader {
+				width: 320px;
+				max-width: 100%;
+				margin: 0 auto;
+			}
+		</style>
 	</head>
 	<body>
-		<h1>Escanear QR</h1>
-		<div id="reader" style="width: 300px; height: 300px"></div>
+		<h2>Escanear QR</h2>
+		<div id="reader"></div>
 
 		<script>
+			const p = new URLSearchParams(location.search);
+			const returnUrl = p.get('return');
+			const sid = p.get('sid');
+			const who = p.get('who') || 'PUERTA';
+
+			if (!returnUrl) {
+				alert('Falta return URL');
+			}
+
 			const qrScanner = new Html5Qrcode('reader');
+
+			async function backWith(reg, ok, message) {
+				const url = new URL(returnUrl);
+				url.searchParams.set('sid', sid || '');
+				url.searchParams.set('ok', ok ? '1' : '0');
+
+				if (reg) {
+					url.searchParams.set('payload', encodeURIComponent(JSON.stringify(reg)));
+				} else if (message) {
+					url.searchParams.set('message', message);
+				}
+
+				location.href = url.toString();
+			}
 
 			qrScanner
 				.start({ facingMode: 'environment' }, { fps: 10, qrbox: 250 }, async (decodedText) => {
-					// 🔥 Enviar a Apps Script para validar
 					try {
+						await qrScanner.stop();
+
 						const res = await fetch(
 							'https://script.google.com/macros/s/AKfycbx1x_-_gYFutasVZW_9DKQSMvdQVx3nYOwLSd1lmWr0RNaVzvl9K5tEoA07xA_nTESc7w/exec',
 							{
 								method: 'POST',
 								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ qr: decodedText }),
+								body: JSON.stringify({ qr: decodedText, origen: who }),
 							},
 						);
-						const data = await res.json();
-						alert('Resultado: ' + data.message);
+
+						const reg = await res.json();
+
+						// si tu endpoint ya devuelve {ok, resultado, jugador, estadoCuota, fechaHora...}
+						// lo mandamos tal cual para que GAS lo renderice con renderCardFromRegistrar(reg)
+						await backWith(reg, !!reg.ok, reg.error || reg.message || '');
 					} catch (e) {
-						alert('Error validando QR: ' + e);
+						await backWith(null, false, 'Error validando QR: ' + e);
 					}
 				})
 				.catch((err) => alert('Error cámara: ' + err));
