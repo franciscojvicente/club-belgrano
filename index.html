@@ -21,55 +21,40 @@
 		<div id="reader"></div>
 
 		<script>
-			const p = new URLSearchParams(location.search);
-			const returnUrl = p.get('return');
-			const sid = p.get('sid');
-			const who = p.get('who') || 'PUERTA';
+			const params = new URLSearchParams(window.location.search);
+			const returnUrl = params.get('return');
+			const sid = params.get('sid');
 
 			if (!returnUrl) {
-				alert('Falta return URL');
+				alert('Error: falta returnUrl');
 			}
 
 			const qrScanner = new Html5Qrcode('reader');
-
-			async function backWith(reg, ok, message) {
-				const url = new URL(returnUrl);
-				url.searchParams.set('sid', sid || '');
-				url.searchParams.set('ok', ok ? '1' : '0');
-
-				if (reg) {
-					url.searchParams.set('payload', encodeURIComponent(JSON.stringify(reg)));
-				} else if (message) {
-					url.searchParams.set('message', message);
-				}
-
-				location.href = url.toString();
-			}
+			let alreadyScanned = false;
 
 			qrScanner
 				.start({ facingMode: 'environment' }, { fps: 10, qrbox: 250 }, async (decodedText) => {
+					if (alreadyScanned) return;
+					alreadyScanned = true;
+
 					try {
 						await qrScanner.stop();
 
-						const res = async (decodedText) => {
-							await qrScanner.stop();
+						const url = new URL(returnUrl);
 
-							const url = new URL(returnUrl);
-							url.searchParams.set('sid', sid || '');
-							url.searchParams.set('qr', decodedText); // 👈 mandás el token
-							location.href = url.toString();
-						};
+						url.searchParams.set('sid', sid || '');
+						url.searchParams.set('qr', decodedText);
 
-						const reg = await res.json();
-
-						// si tu endpoint ya devuelve {ok, resultado, jugador, estadoCuota, fechaHora...}
-						// lo mandamos tal cual para que GAS lo renderice con renderCardFromRegistrar(reg)
-						await backWith(reg, !!reg.ok, reg.error || reg.message || '');
+						// volver al Apps Script
+						window.location.href = url.toString();
 					} catch (e) {
-						await backWith(null, false, 'Error validando QR: ' + e);
+						alert('Error cámara/redirect: ' + e);
+						alreadyScanned = false;
 					}
 				})
-				.catch((err) => alert('Error cámara: ' + err));
+				.catch((err) => {
+					alert('Error cámara: ' + err);
+				});
 		</script>
 	</body>
 </html>
